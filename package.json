@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "dependencies": {
+    "packedio": "git+https://github.com/EndCrystal/PackedIO_JS.git"
+  },
+  "devDependencies": {
+    "typescript": "^3.6.3"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "compilerOptions": {
+    "alwaysStrict": true,
+    "lib": ["dom", "es2019"]
+  }
+}
