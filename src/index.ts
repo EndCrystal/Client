@@ -7,6 +7,7 @@ import {
   TextPacketPlainTextPayload,
   DisconnectPacket,
   GameStartPacket,
+  emitPackets,
 } from './packets'
 
 async function main() {
@@ -39,7 +40,7 @@ function start(address: string, ticket: ArrayBuffer) {
   conn.binaryType = 'arraybuffer'
   conn.addEventListener('open', () => further(ticket))
   conn.addEventListener('message', ev => handle(ev.data as ArrayBuffer))
-  conn.addEventListener('close', () => stage = Stage.Closed)
+  conn.addEventListener('close', () => (stage = Stage.Closed))
 }
 
 function further(ticket: ArrayBuffer) {
@@ -59,31 +60,32 @@ function further(ticket: ArrayBuffer) {
 
 function handle(buffer: ArrayBuffer) {
   const i = new io.Input(new DataView(buffer))
-  const pkt = parsePacket(i)
-  console.log('Received packet %o', pkt)
-  switch (stage) {
-    case Stage.Initial:
-      if (pkt instanceof GameStartPacket) {
-        stage = Stage.Running
-      } else if (pkt instanceof DisconnectPacket) {
-        console.warn("Disconnected ", pkt.message)
-        stage = Stage.Closed
-      } else {
-        console.error('Unexcepted packet %o', pkt)
-      }
-      break
-    case Stage.Running:
-      if (pkt instanceof TextPacket) {
-        if (pkt.payload instanceof TextPacketPlainTextPayload) {
-          console.log(pkt.sender + ':' + pkt.payload.content)
+  for (const pkt of emitPackets(parsePacket(i))) {
+    console.log('Received packet %o', pkt)
+    switch (stage) {
+      case Stage.Initial:
+        if (pkt instanceof GameStartPacket) {
+          stage = Stage.Running
+        } else if (pkt instanceof DisconnectPacket) {
+          console.warn('Disconnected ', pkt.message)
+          stage = Stage.Closed
+        } else {
+          console.error('Unexcepted packet %o', pkt)
         }
-      } else if (pkt instanceof DisconnectPacket) {
-        console.warn("Disconnected %o", pkt.message)
-        stage = Stage.Closed
-      }
-      break
-    default:
-      console.error('Unimplemented stage %d', stage)
+        break
+      case Stage.Running:
+        if (pkt instanceof TextPacket) {
+          if (pkt.payload instanceof TextPacketPlainTextPayload) {
+            console.log(pkt.sender + ':' + pkt.payload.content)
+          }
+        } else if (pkt instanceof DisconnectPacket) {
+          console.warn('Disconnected %o', pkt.message)
+          stage = Stage.Closed
+        }
+        break
+      default:
+        console.error('Unimplemented stage %d', stage)
+    }
   }
 }
 

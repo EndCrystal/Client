@@ -1,44 +1,58 @@
 import * as io from 'packedio'
 
 enum PacketId {
-  Login = 0x01,
-  Disconnect = 0x02,
-  ChunkData = 0x03,
-  Chat = 0x04,
-  Text = 0x05,
-  GameStart = 0x06
+  Batch,
+  Login,
+  Disconnect,
+  GameStart,
+  Chat,
+  Text,
+  ChunkData,
 }
 
-const id: unique symbol = Symbol("id")
+const id: unique symbol = Symbol('id')
 
 export interface Packet extends io.Serializable {
   readonly [id]: PacketId
+}
+
+export function* emitPackets(pkt: Packet): IterableIterator<Packet> {
+  if (pkt instanceof BatchPacket) {
+    for (const item of pkt.packets) {
+      yield* emitPackets(item)
+    }
+  } else {
+    yield pkt
+  }
 }
 
 export function parsePacket(i: io.Input): Packet {
   const id = i.readUint8()
   let ret: Packet
   switch (id) {
+    case PacketId.Batch:
+      ret = new BatchPacket()
+      break
     case PacketId.Login:
-      ret = new LoginPacket
+      ret = new LoginPacket()
       break
     case PacketId.Disconnect:
-      ret = new DisconnectPacket
-      break
-    case PacketId.ChunkData:
-      ret = new ChunkDataPacket
-      break
-    case PacketId.Chat:
-      ret = new ChatPacket
-      break
-    case PacketId.Text:
-      ret = new TextPacket
+      ret = new DisconnectPacket()
       break
     case PacketId.GameStart:
-      ret = new GameStartPacket
+      ret = new GameStartPacket()
+      break
+    case PacketId.Chat:
+      ret = new ChatPacket()
+      break
+    case PacketId.Text:
+      ret = new TextPacket()
+      break
+    case PacketId.ChunkData:
+      ret = new ChunkDataPacket()
       break
     default:
-      throw new Error("Failed to parse packet: unknown packet")
+      throw new Error('Failed to parse packet: unknown packet')
   }
   ret.Load(i)
   return ret
@@ -49,13 +63,25 @@ export function buildPacket(o: io.Output, pkt: Packet) {
   pkt.Save(o)
 }
 
+export class BatchPacket implements Packet {
+  [id] = PacketId.Batch
+  packets: Packet[]
+  Load(i: io.Input): void {
+    this.packets = []
+    i.iterateArray(() => this.packets.push(parsePacket(i)))
+  }
+  Save(o: io.Output): void {
+    o.pushArray(this.packets, item => buildPacket(o, item))
+  }
+}
+
 export class LoginPacket implements Packet {
   readonly [id] = PacketId.Login
   Load(i: io.Input): void {
-    throw new Error("Method not implemented.")
+    throw new Error('Method not implemented.')
   }
   Save(o: io.Output): void {
-    throw new Error("Method not implemented.")
+    throw new Error('Method not implemented.')
   }
 }
 
@@ -70,13 +96,20 @@ export class DisconnectPacket implements Packet {
   }
 }
 
-export class ChunkDataPacket implements Packet {
-  readonly [id] = PacketId.ChunkData
+export class GameStartPacket implements Packet {
+  [id] = PacketId.GameStart
+  username: string
+  label: string
+  motd: string
   Load(i: io.Input): void {
-    throw new Error("Method not implemented.")
+    this.username = i.readString()
+    this.label = i.readString()
+    this.motd = i.readString()
   }
   Save(o: io.Output): void {
-    throw new Error("Method not implemented.")
+    o.pushString(this.username)
+    o.pushString(this.label)
+    o.pushString(this.motd)
   }
 }
 
@@ -98,7 +131,7 @@ export enum TextPacketFlags {
 }
 
 export enum TextPacketPayloadType {
-  PlainText = 0
+  PlainText = 0,
 }
 
 export interface TextPacketPayload extends io.Serializable {
@@ -118,7 +151,8 @@ export class TextPacketPlainTextPayload implements TextPacketPayload {
 
 function GetTextPacketPayload(type: TextPacketPayloadType): TextPacketPayload {
   switch (type) {
-    case TextPacketPayloadType.PlainText: return new TextPacketPlainTextPayload
+    case TextPacketPayloadType.PlainText:
+      return new TextPacketPlainTextPayload()
   }
   return null
 }
@@ -133,7 +167,9 @@ export class TextPacket implements Packet {
     this.sender = i.readString()
     this.payload = GetTextPacketPayload(i.readUint8())
     if (this.payload == null) {
-      throw new Error("Failed to parse text packet payload: unknown payload type")
+      throw new Error(
+        'Failed to parse text packet payload: unknown payload type',
+      )
     }
     this.payload.Load(i)
   }
@@ -145,19 +181,12 @@ export class TextPacket implements Packet {
   }
 }
 
-export class GameStartPacket implements Packet {
-  [id] = PacketId.GameStart
-  username: string
-  label: string
-  motd: string
+export class ChunkDataPacket implements Packet {
+  readonly [id] = PacketId.ChunkData
   Load(i: io.Input): void {
-    this.username = i.readString()
-    this.label = i.readString()
-    this.motd = i.readString()
+    throw new Error('Method not implemented.')
   }
   Save(o: io.Output): void {
-    o.pushString(this.username)
-    o.pushString(this.label)
-    o.pushString(this.motd)
+    throw new Error('Method not implemented.')
   }
 }

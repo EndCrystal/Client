@@ -1,6 +1,8 @@
 {
   "compilerOptions": {
     "alwaysStrict": true,
-    "lib": ["dom", "es2019"]
+    "lib": ["dom", "es2019"],
+    "target": "es2019",
+    "module": "commonjs"
   }
 }
