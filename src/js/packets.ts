@@ -167,9 +167,7 @@ export class TextPacket implements Packet {
     this.sender = i.readString()
     this.payload = GetTextPacketPayload(i.readUint8())
     if (this.payload == null) {
-      throw new Error(
-        'Failed to parse text packet payload: unknown payload type',
-      )
+      throw new Error('Failed to parse text packet payload: unknown payload type')
     }
     this.payload.Load(i)
   }
