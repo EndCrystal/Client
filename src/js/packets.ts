@@ -103,6 +103,7 @@ export class GameStartPacket implements Packet {
   username: string
   label: string
   motd: string
+  maxViewDistance: number
   pos: [number, number]
   blocks: { [key: string]: number }
   components: string[]
@@ -110,6 +111,7 @@ export class GameStartPacket implements Packet {
     this.username = i.readString()
     this.label = i.readString()
     this.motd = i.readString()
+    this.maxViewDistance = i.readVarUint32()
     this.pos = [i.readInt32(), i.readInt32()]
     this.blocks = {}
     i.iterateObject(key => (this.blocks[key] = i.readUint8()))
@@ -192,6 +194,9 @@ export class TextPacket implements Packet {
 export class ChunkRequestPacket implements Packet {
   readonly [id] = PacketId.ChunkRequest
   pos: [number, number]
+  constructor(pos?: [number, number]) {
+    this.pos = pos
+  }
   Load(i: io.Input): void {
     throw new Error('Method not implemented.')
   }

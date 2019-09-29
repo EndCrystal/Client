@@ -13,13 +13,13 @@ async function main() {
       console.error(msg, ...obj)
     },
     onClosed(): void {
-      console.log("closed")
+      console.log('closed')
     },
     onInitial(): void {
-      console.log("initial")
+      console.log('initial')
     },
     onStarting(): void {
-      console.log("starting")
+      console.log('starting')
       const input = document.createElement('input')
       document.body.append(input)
       input.addEventListener('keyup', ev => {
@@ -30,11 +30,12 @@ async function main() {
       })
 
       const btn = document.createElement('button')
-      btn.textContent = "test chunk request"
+      btn.textContent = 'test chunk request'
       document.body.append(btn)
       btn.addEventListener('click', ev => {
         ev.preventDefault()
-        app.sendChunkRequest([0, 0])
+        app.sendChunkRequests([-8, -8], [8, 8])
+        // for (let i = -8; i <= 8; i++) for (let j = -8; j <= 8; j++) app.sendChunkRequest([i, j])
       })
     },
   })

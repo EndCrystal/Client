@@ -10,6 +10,7 @@ import {
   emitPackets,
   ChunkRequestPacket,
   ChunkDataPacket,
+  BatchPacket,
 } from './packets'
 
 export interface ApplicationEffects {
@@ -79,7 +80,7 @@ export class Application {
             this.effects.warn('Disconnected %o', pkt.message)
             this.changeStage(Stage.Closed)
           } else if (pkt instanceof ChunkDataPacket) {
-            this.effects.log("Chunk data received: %o", pkt)
+            // this.effects.log('Chunk data received: %o', pkt)
           } else {
             this.effects.error('Unexcepted packet %o in stage running', pkt)
           }
@@ -98,6 +99,21 @@ export class Application {
   sendChunkRequest(pos: [number, number]) {
     const pkt = createChunkRequestPacket(pos)
     this.conn.send(pkt)
+  }
+
+  sendChunkRequests(start: [number, number], end: [number, number]) {
+    const batch = new BatchPacket()
+    let c = 0
+    batch.packets = new Array((end[0] - start[0]) * (end[1] - start[1]))
+    for (let i = start[0]; i <= end[0]; i++) {
+      for (let j = start[1]; j <= end[1]; j++) {
+        batch.packets[c] = new ChunkRequestPacket([i, j])
+        c++
+      }
+    }
+    const out = new io.Output()
+    buildPacket(out, batch)
+    this.conn.send(out.write())
   }
 }
 
