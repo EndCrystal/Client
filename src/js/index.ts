@@ -28,6 +28,14 @@ async function main() {
           input.value = ''
         }
       })
+
+      const btn = document.createElement('button')
+      btn.textContent = "test chunk request"
+      document.body.append(btn)
+      btn.addEventListener('click', ev => {
+        ev.preventDefault()
+        app.sendChunkRequest([0, 0])
+      })
     },
   })
 }

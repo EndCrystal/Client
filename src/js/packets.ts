@@ -7,6 +7,7 @@ enum PacketId {
   GameStart,
   Chat,
   Text,
+  ChunkRequest,
   ChunkData,
 }
 
@@ -101,15 +102,23 @@ export class GameStartPacket implements Packet {
   username: string
   label: string
   motd: string
+  pos: [number, number]
+  blocks: { [key: string]: number }
+  components: string[]
   Load(i: io.Input): void {
     this.username = i.readString()
     this.label = i.readString()
     this.motd = i.readString()
+    this.pos = [i.readInt32(), i.readInt32()]
+    this.blocks = {}
+    i.iterateObject(key => (this.blocks[key] = i.readUint8()))
+    this.components = []
+    i.iterateArray(() => {
+      this.components.push(i.readString())
+    })
   }
   Save(o: io.Output): void {
-    o.pushString(this.username)
-    o.pushString(this.label)
-    o.pushString(this.motd)
+    throw new Error('Method not implemented.')
   }
 }
 
@@ -179,10 +188,22 @@ export class TextPacket implements Packet {
   }
 }
 
+export class ChunkRequestPacket implements Packet {
+  readonly [id] = PacketId.ChunkRequest
+  pos: [number, number]
+  Load(i: io.Input): void {
+    throw new Error('Method not implemented.')
+  }
+  Save(o: io.Output): void {
+    o.pushInt32(this.pos[0])
+    o.pushInt32(this.pos[1])
+  }
+}
+
 export class ChunkDataPacket implements Packet {
   readonly [id] = PacketId.ChunkData
   Load(i: io.Input): void {
-    throw new Error('Method not implemented.')
+    console.log('Not implemented')
   }
   Save(o: io.Output): void {
     throw new Error('Method not implemented.')

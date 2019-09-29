@@ -8,6 +8,8 @@ import {
   DisconnectPacket,
   GameStartPacket,
   emitPackets,
+  ChunkRequestPacket,
+  ChunkDataPacket,
 } from './packets'
 
 export interface ApplicationEffects {
@@ -76,6 +78,8 @@ export class Application {
           } else if (pkt instanceof DisconnectPacket) {
             this.effects.warn('Disconnected %o', pkt.message)
             this.changeStage(Stage.Closed)
+          } else if (pkt instanceof ChunkDataPacket) {
+            this.effects.log("Chunk data received: %o", pkt)
           } else {
             this.effects.error('Unexcepted packet %o in stage running', pkt)
           }
@@ -90,6 +94,11 @@ export class Application {
     const pkt = createChatPacket(text)
     this.conn.send(pkt)
   }
+
+  sendChunkRequest(pos: [number, number]) {
+    const pkt = createChunkRequestPacket(pos)
+    this.conn.send(pkt)
+  }
 }
 
 enum Stage {
@@ -102,6 +111,13 @@ function createChatPacket(text: string): ArrayBuffer {
   const out = new io.Output()
   const pkt = new ChatPacket()
   pkt.message = text
+  buildPacket(out, pkt)
+  return out.write()
+}
+function createChunkRequestPacket(pos: [number, number]): ArrayBuffer {
+  const out = new io.Output()
+  const pkt = new ChunkRequestPacket()
+  pkt.pos = pos
   buildPacket(out, pkt)
   return out.write()
 }
