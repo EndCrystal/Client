@@ -1,4 +1,5 @@
 import * as io from 'packedio'
+import { inflate } from 'pako'
 
 enum PacketId {
   Batch,
@@ -202,8 +203,11 @@ export class ChunkRequestPacket implements Packet {
 
 export class ChunkDataPacket implements Packet {
   readonly [id] = PacketId.ChunkData
+  pos: [number, number]
+  data: Uint8Array
   Load(i: io.Input): void {
-    console.log('Not implemented')
+    this.pos = [i.readInt32(), i.readInt32()]
+    this.data = inflate(new Uint8Array(i.readBytes()))
   }
   Save(o: io.Output): void {
     throw new Error('Method not implemented.')

@@ -1,9 +1,11 @@
 {
   "private": true,
   "dependencies": {
-    "packedio": "git+https://github.com/EndCrystal/PackedIO_JS.git"
+    "packedio": "git+https://github.com/EndCrystal/PackedIO_JS.git",
+    "pako": "^1.0.10"
   },
   "devDependencies": {
+    "@types/pako": "^1.0.1",
     "typescript": "^3.6.3"
   },
   "browserslist": [
