@@ -1,5 +1,7 @@
 import * as io from 'packedio'
 import { inflate } from 'pako'
+import { attribute, Block, BlockInstance } from './world/block'
+import { Chunk } from './world/chunk'
 
 enum PacketId {
   Batch,
@@ -28,12 +30,16 @@ export function* emitPackets(pkt: Packet): IterableIterator<Packet> {
   }
 }
 
-export function parsePacket(i: io.Input): Packet {
+export interface ParseContext {
+  GetBlockByName(name: string): Block
+}
+
+export function parsePacket(i: io.Input, ctx: ParseContext): Packet {
   const id = i.readUint8()
   let ret: Packet
   switch (id) {
     case PacketId.Batch:
-      ret = new BatchPacket()
+      ret = new BatchPacket(ctx)
       break
     case PacketId.Login:
       ret = new LoginPacket()
@@ -51,7 +57,7 @@ export function parsePacket(i: io.Input): Packet {
       ret = new TextPacket()
       break
     case PacketId.ChunkData:
-      ret = new ChunkDataPacket()
+      ret = new ChunkDataPacket(ctx)
       break
     default:
       throw new Error('Failed to parse packet: unknown packet')
@@ -68,9 +74,13 @@ export function buildPacket(o: io.Output, pkt: Packet) {
 export class BatchPacket implements Packet {
   [id] = PacketId.Batch
   packets: Packet[]
+  ctx: ParseContext
+  constructor(ctx: ParseContext) {
+    this.ctx = ctx
+  }
   Load(i: io.Input): void {
     this.packets = []
-    i.iterateArray(() => this.packets.push(parsePacket(i)))
+    i.iterateArray(() => this.packets.push(parsePacket(i, this.ctx)))
   }
   Save(o: io.Output): void {
     o.pushArray(this.packets, item => buildPacket(o, item))
@@ -105,7 +115,7 @@ export class GameStartPacket implements Packet {
   motd: string
   maxViewDistance: number
   pos: [number, number]
-  blocks: { [key: string]: number }
+  blocks: [string, attribute][]
   components: string[]
   Load(i: io.Input): void {
     this.username = i.readString()
@@ -113,8 +123,8 @@ export class GameStartPacket implements Packet {
     this.motd = i.readString()
     this.maxViewDistance = i.readVarUint32()
     this.pos = [i.readInt32(), i.readInt32()]
-    this.blocks = {}
-    i.iterateObject(key => (this.blocks[key] = i.readUint8()))
+    this.blocks = []
+    i.iterateObject(key => this.blocks.push([key, i.readUint8()]))
     this.components = []
     i.iterateArray(() => {
       this.components.push(i.readString())
@@ -209,10 +219,58 @@ export class ChunkRequestPacket implements Packet {
 export class ChunkDataPacket implements Packet {
   readonly [id] = PacketId.ChunkData
   pos: [number, number]
-  data: Uint8Array
+  // data: Uint8Array
+  chunk: Chunk
+  private ctx: ParseContext
+  constructor(ctx: ParseContext) {
+    this.ctx = ctx
+  }
   Load(i: io.Input): void {
     this.pos = [i.readInt32(), i.readInt32()]
-    this.data = inflate(new Uint8Array(i.readBytes()))
+    const data: Uint8Array = inflate(new Uint8Array(i.readBytes()))
+    const ni = new io.Input(new DataView(data.buffer))
+    this.chunk = new Chunk()
+
+    // read local block map
+    let airmark = -1
+    const lobmap = ni.readArray(idx => {
+      const name = ni.readString()
+      const blk = this.ctx.GetBlockByName(name)
+      if (blk == null) {
+        throw new Error(`Failed to load block ${name}`)
+      }
+      if (name == 'core:air') airmark = idx
+      const bi = new BlockInstance()
+      bi.block = blk
+      if (blk.hasAux()) {
+        bi.aux = ni.readUint32()
+      }
+      if (blk.hasColor()) {
+        bi.aux = ni.readUint32()
+      }
+      return bi
+    })
+
+    for (let idx = 0; idx < 65536; idx++) {
+      const x = ni.readVarUint32()
+      if (x == airmark) continue
+      const bi = lobmap[x]
+      if (!bi) {
+        throw new Error(`Unknown block instance ${x}`)
+      }
+      const nw = this.chunk.subs[(idx / 4096) | 0].SetBlock(idx % 4096, bi)
+      if (nw) this.chunk.subs[(idx / 4096) | 0] = nw
+    }
+    for (let idx = 0; idx < 65536; idx++) {
+      const x = ni.readVarUint32()
+      if (x == airmark) continue
+      const bi = lobmap[x]
+      if (!bi) {
+        throw new Error(`Unknown block instance ${x}`)
+      }
+      const nw = this.chunk.bgsubs[(idx / 4096) | 0].SetBlock(idx % 4096, bi)
+      if (nw) this.chunk.bgsubs[(idx / 4096) | 0] = nw
+    }
   }
   Save(o: io.Output): void {
     throw new Error('Method not implemented.')

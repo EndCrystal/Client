@@ -11,7 +11,9 @@ import {
   ChunkRequestPacket,
   ChunkDataPacket,
   BatchPacket,
+  ParseContext,
 } from './packets'
+import { BlockRegistry, Block } from './world/block'
 
 export interface ApplicationEffects {
   log(msg: string, ...obj: any[]): void
@@ -26,6 +28,7 @@ export class Application {
   private conn: WebSocket
   private stage: Stage = Stage.Closed
   private effects: ApplicationEffects
+  private blocks = new BlockRegistry()
 
   constructor(address: string, ticket: ArrayBuffer, effects: ApplicationEffects) {
     this.effects = effects
@@ -56,13 +59,18 @@ export class Application {
     this.changeStage(Stage.Initial)
   }
 
+  private ifce: ParseContext = {
+    GetBlockByName: (name: string): Block => this.blocks.getByName(name),
+  }
+
   private handle(buffer: ArrayBuffer) {
     const i = new io.Input(new DataView(buffer))
-    for (const pkt of emitPackets(parsePacket(i))) {
-      this.effects.log('Received packet %o', pkt)
+    for (const pkt of emitPackets(parsePacket(i, this.ifce))) {
+      this.effects.log('Received packet %o', pkt.constructor.name)
       switch (this.stage) {
         case Stage.Initial:
           if (pkt instanceof GameStartPacket) {
+            pkt.blocks.forEach(([k, v]) => this.blocks.register(k, v))
             this.changeStage(Stage.Starting)
           } else if (pkt instanceof DisconnectPacket) {
             this.effects.warn('Disconnected ', pkt.message)
@@ -80,7 +88,7 @@ export class Application {
             this.effects.warn('Disconnected %o', pkt.message)
             this.changeStage(Stage.Closed)
           } else if (pkt instanceof ChunkDataPacket) {
-            // this.effects.log('Chunk data received: %o', pkt)
+            this.effects.log('Chunk data received: %o', pkt.chunk)
           } else {
             this.effects.error('Unexcepted packet %o in stage running', pkt)
           }
@@ -102,7 +110,7 @@ export class Application {
   }
 
   sendChunkRequests(start: [number, number], end: [number, number]) {
-    const batch = new BatchPacket()
+    const batch = new BatchPacket(this.ifce)
     let c = 0
     batch.packets = new Array((end[0] - start[0]) * (end[1] - start[1]))
     for (let i = start[0]; i <= end[0]; i++) {
